@@ -7,12 +7,12 @@ import time
 # Create an instance of the environment
 env = Environment()
 
-# Create an instance of the agent
+# Create an instance of the agent #Change (14,6) -> (12,6)
 agent = Agent(14, 6)
 
 # Set the number of episodes to train
 episodes = 5000
-
+start = 0
 start = time.time()
 # Loop over the episodes
 for i in range(episodes):
@@ -47,7 +47,7 @@ for i in range(episodes):
 
 endtime = time.time()
 total = endtime - start
-print(f"Startime at : {start} and time ends at : {endtime} for a total of : {total}      ")
+#print(f"Startime at : {start} and time ends at : {endtime} for a total of : {total}      ")
 
 import torch
 
@@ -55,4 +55,4 @@ import torch
 model = agent.model
 
 # Save the model to a file named 'model.pth'
-torch.save(model, 'model.pth')
+torch.save(model.state_dict(), '/Users/tarnarsson/Desktop/mancala/mancala/groups/group_3A/sdmodel_5k_input14.pth')

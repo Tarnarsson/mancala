@@ -5,11 +5,11 @@ import torch.optim as optim
 import random
 from collections import deque
 
-GAMMA = 0.99
+GAMMA = 0.7
 EPSILON = 1.0
 EPSILON_DECAY = 0.995
 EPSILON_MIN = 0.01
-LEARNING_RATE = 0.01 #0.0001
+LEARNING_RATE = 0.0003 #0.0001
 BATCH_SIZE = 32
 MEMORY_SIZE = 10000
 
@@ -40,7 +40,9 @@ class Agent:
         else:
             state = torch.from_numpy(np.array(state)).float().unsqueeze(0)
             with torch.no_grad():
-                q_values = self.model(state)
+                #changes filter state 
+                #sub_states = state[2:]
+                q_values = self.model(state) #sub_
             return q_values.max(1)[1].item()
 
     def remember(self, state, action, reward, next_state, done):
@@ -48,7 +50,7 @@ class Agent:
         self.memory.append((state, action, reward, next_state, done))
 
     def learn(self):
-        if len(self.memory) < BATCH_SIZE:
+        if len(self.memory) < 4*BATCH_SIZE: #original was only batch size changed to 4*BS
             return
         batch = random.sample(self.memory, BATCH_SIZE)
         states, actions, rewards, next_states, dones = zip(*batch)
@@ -61,10 +63,14 @@ class Agent:
         rewards = torch.from_numpy(np.array(rewards)).float()
         next_states = torch.from_numpy(np.array(next_states)).float()
         dones = torch.from_numpy(np.array(dones)).float()
-        q_values = self.model(states)
-        next_q_values = self.model(next_states)
+        #changes filter state so that input will only be board, we also have to change the input in the training files then. from (14,6) to (12,6)
+        #sub_states = states[2:]
+        #sub_next_states = next_states[2:]
+        q_values = self.model(states) #sub_
+        next_q_values = self.model(next_states) #sub_
         q_values = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
         next_q_values = next_q_values.max(1)[0]
+        #print(dones)
         targets = rewards + GAMMA * next_q_values * (1 - dones)
         loss = nn.MSELoss()(q_values, targets)
         self.optimizer.zero_grad()
@@ -91,7 +97,7 @@ class Environment:
         reward = 0
         pit = action + 2 # add 2 to the action to get the corresponding index in the array
         store_pit = -1 # initialize store_pit to -1
-        #checks if the move is valid, and terminates the game?
+        #change in return, checks if the move is valid, and terminates the game? original reward = -10, maybe not working well, tested -100 briefly now testing 0.
         if self.board[pit] == 0:
             return self.get_state(), -10, True
         stones = self.board[pit]
@@ -101,6 +107,8 @@ class Environment:
             pit = (pit + 1) % 14 # increment pit by 1 and wrap around if it exceeds the array length
             if (self.player == 1 and pit == 1) or (self.player == 2 and pit == 0): # skip the opponent's store
                 continue
+            if (self.player == 1 and pit == 0) or (self.player == 2 and pit == 1): # change so that we reward for passing over our pit.
+                reward += 1
             self.board[pit] += 1
             stones -= 1
 
@@ -108,10 +116,11 @@ class Environment:
             if self.board[pit] == 1: # check if the last stone landed in an empty pit
                 opposite_pit = (14 - pit) % 14 # get the index of the opposite pit
                 store_pit = self.player - 1 # assign store_pit a value based on the player's number
+                reward += self.board[pit] + self.board[opposite_pit] # change make the reward based on the amount in the pits wrather than 10
                 self.board[store_pit] += self.board[pit] + self.board[opposite_pit] # capture the stones from both pits and add them to the store
                 self.board[pit] = 0
                 self.board[opposite_pit] = 0
-                reward += 10
+                #reward += 10
             if pit == store_pit: # compare pit and store_pit
                 reward += 1
                 return self.get_state(), reward, False
